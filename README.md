@@ -1,24 +1,174 @@
 {
-  "name": "abtahi-ai",
+  "name": "abtahi-search-ai",
   "version": "1.0.0",
-  "description": "Abtahi — AI assistant (OpenAI + Google search). Push to GitHub and deploy to Render/Heroku/Vercel.",
+  "description": "Search-based QA using Google Custom Search + OpenAI",
   "main": "server.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
     "axios": "^1.4.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "helmet": "^7.0.0"
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
   }
 }
+// server.js
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public')); // serve index.html from /public
+
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_CX = process.env.GOOGLE_CX;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!GOOGLE_API_KEY || !GOOGLE_CX || !OPENAI_API_KEY) {
+  console.warn('Missing one or more API keys. Set GOOGLE_API_KEY, GOOGLE_CX, OPENAI_API_KEY in .env');
+}
+
+app.post('/api/search', async (req, res) => {
+  try {
+    const query = (req.body.query || '').trim();
+    if (!query) return res.status(400).json({ error: 'query required' });
+
+    // 1) Google Custom Search: get top 5 results
+    const gResp = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params: {
+        key: GOOGLE_API_KEY,
+        cx: GOOGLE_CX,
+        q: query,
+        num: 5
+      }
+    });
+
+    const items = (gResp.data.items || []).map(it => ({
+      title: it.title,
+      link: it.link,
+      snippet: it.snippet
+    }));
+
+    // 2) Build a prompt for the LLM
+    const systemPrompt = `You are a helpful assistant that answers user questions using only the provided web search snippets and links. Provide a concise answer, then list the sources (title + link). If the snippets don't support a conclusive answer, say so and offer possible next search terms.`;
+
+    // Compose content for model with reliable context
+    const contentParts = [
+      `User question: ${query}`,
+      `---`,
+      `Search results (top ${items.length}):`
+    ];
+    items.forEach((it, i) => {
+      contentParts.push(`${i + 1}. ${it.title}\n${it.snippet}\n${it.link}`);
+    });
+    contentParts.push(`---\nInstructions:\n- Use only the information in the snippets and links above.\n- Give a short answer (2-5 paragraphs max), then a "Sources:" block listing items used (by number and link).`);
+
+    const prompt = contentParts.join('\n\n');
+
+    // 3) Call OpenAI Chat Completion (replace model as you prefer)
+    const openaiResp = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o-mini', // change to preferred model
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 700,
+      temperature: 0.2
+    }, {
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const assistantText = openaiResp.data.choices?.[0]?.message?.content || '';
+
+    // Return answer plus raw results for transparency
+    res.json({
+      answer: assistantText,
+      results: items
+    });
+  } catch (err) {
+    console.error(err.message || err);
+    res.status(500).json({ error: 'Server error', detail: err.message || err.toString() });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Abtahi Search AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, sans-serif; padding: 20px; max-width: 850px; margin: auto; }
+    textarea { width: 100%; height: 80px; font-size: 16px; padding: 8px; }
+    button { padding: 10px 16px; font-size: 16px; margin-top: 8px; }
+    pre { background:#f6f6f6; padding:12px; border-radius:6px; white-space:pre-wrap; }
+    .result { margin-top:16px; }
+    .sources { margin-top:10px; font-size: 14px; color: #333; }
+  </style>
+</head>
+<body>
+  <h1>Abtahi — Search-powered AI</h1>
+  <p>Ask anything — the app fetches Google results then the AI composes an answer from those sources.</p>
+
+  <textarea id="q" placeholder="Type your question here..."></textarea>
+  <br/>
+  <button id="ask">Ask</button>
+
+  <div class="result" id="result" style="display:none;">
+    <h3>Answer</h3>
+    <pre id="answer"></pre>
+
+    <h4>Search results used</h4>
+    <div id="resultsList"></div>
+  </div>
+
+  <script>
+    document.getElementById('ask').onclick = async () => {
+      const q = document.getElementById('q').value.trim();
+      if (!q) return alert('Type a question');
+      document.getElementById('answer').textContent = 'Thinking...';
+      document.getElementById('result').style.display = 'block';
+      try {
+        const r = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q })
+        });
+        const data = await r.json();
+        if (data.error) {
+          document.getElementById('answer').textContent = 'Error: ' + (data.error || JSON.stringify(data));
+        } else {
+          document.getElementById('answer').textContent = data.answer;
+          const rl = document.getElementById('resultsList');
+          rl.innerHTML = '';
+          (data.results || []).forEach((it, i) => {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${i+1}. ${escapeHtml(it.title)}</strong><br/><a href="${it.link}" target="_blank">${it.link}</a><div>${escapeHtml(it.snippet)}</div><hr/>`;
+            rl.appendChild(div);
+          });
+        }
+      } catch (e) {
+        document.getElementById('answer').textContent = 'Network/server error: ' + e.message;
+      }
+    };
+
+    function escapeHtml(s){ return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+  </script>
+</body>
+</html>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -316,6 +466,51 @@
         .search-result a:hover {
             text-decoration: underline;
         }
+        
+        .document-box {
+            background: #fce4ec;
+            border-left: 4px solid #ec407a;
+            padding: 12px 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .document-box a {
+            color: #0077b6;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .tools-container {
+            display: flex;
+            padding: 10px 15px;
+            background: #e9ecef;
+            border-top: 1px solid #ddd;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .tool-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+        
+        .tool-btn:hover {
+            background: #5a6268;
+        }
+        
+        .tool-btn.active {
+            background: #0077b6;
+        }
     </style>
 </head>
 <body>
@@ -333,7 +528,7 @@
         <div class="chat-container" id="chatContainer">
             <div class="message ai-message">
                 <p>Hello! I'm Abtahi, your AI assistant from Bangladesh. 🇧🇩</p>
-                <p>I can answer questions, generate code, write stories, and find information using Google search. How can I help you today?</p>
+                <p>I can answer questions, generate code, write stories, find information, and help with documents. How can I help you today?</p>
             </div>
             <div class="typing-indicator" id="typingIndicator">
                 <span></span>
@@ -347,6 +542,13 @@
             <div class="chip" data-prompt="Tell me a story about space">Space Story</div>
             <div class="chip" data-prompt="Search for latest AI developments">AI Developments</div>
             <div class="chip" data-prompt="Generate a responsive navbar">HTML Navbar</div>
+            <div class="chip" data-prompt="Find research papers on machine learning">Research Papers</div>
+        </div>
+        
+        <div class="tools-container">
+            <button class="tool-btn" data-action="clear-chat"><i class="fas fa-broom"></i> Clear Chat</button>
+            <button class="tool-btn" data-action="export-chat"><i class="fas fa-download"></i> Export Chat</button>
+            <button class="tool-btn" data-action="change-theme"><i class="fas fa-palette"></i> Change Theme</button>
         </div>
         
         <div class="input-container">
@@ -362,6 +564,7 @@
             const sendButton = document.getElementById('sendButton');
             const typingIndicator = document.getElementById('typingIndicator');
             const chips = document.querySelectorAll('.chip');
+            const toolButtons = document.querySelectorAll('.tool-btn');
             
             // Focus on input field
             userInput.focus();
@@ -401,22 +604,27 @@
                     hello: "print('Hello, World!')",
                     loop: "for i in range(10):\n    print(i)",
                     function: "def example_function():\n    return 'This is an example'",
-                    calculator: "def add(a, b):\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n\ndef multiply(a, b):\n    return a * b\n\ndef divide(a, b):\n    if b != 0:\n        return a / b\n    else:\n        return 'Cannot divide by zero'\n\n# Example usage\nresult = add(5, 3)\nprint(f'5 + 3 = {result}')"
+                    calculator: "def add(a, b):\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n\ndef multiply(a, b):\n    return a * b\n\ndef divide(a, b):\n    if b != 0:\n        return a / b\n    else:\n        return 'Cannot divide by zero'\n\n# Example usage\nresult = add(5, 3)\nprint(f'5 + 3 = {result}')",
+                    web_scraper: "import requests\nfrom bs4 import BeautifulSoup\n\n# Fetch webpage content\nurl = 'https://example.com'\nresponse = requests.get(url)\n\n# Parse HTML content\nsoup = BeautifulSoup(response.text, 'html.parser')\n\n# Extract all links\nlinks = soup.find_all('a')\nfor link in links:\n    print(link.get('href'))"
                 },
                 javascript: {
                     hello: "console.log('Hello, World!');",
                     loop: "for(let i = 0; i < 10; i++) {\n    console.log(i);\n}",
                     function: "function exampleFunction() {\n    return 'This is an example';\n}",
-                    calculator: "function add(a, b) {\n    return a + b;\n}\n\nfunction subtract(a, b) {\n    return a - b;\n}\n\nfunction multiply(a, b) {\n    return a * b;\n}\n\nfunction divide(a, b) {\n    if (b !== 0) {\n        return a / b;\n    } else {\n        return 'Cannot divide by zero';\n    }\n}\n\n// Example usage\nconst result = add(5, 3);\nconsole.log(`5 + 3 = ${result}`);"
+                    calculator: "function add(a, b) {\n    return a + b;\n}\n\nfunction subtract(a, b) {\n    return a - b;\n}\n\nfunction multiply(a, b) {\n    return a * b;\n}\n\nfunction divide(a, b) {\n    if (b !== 0) {\n        return a / b;\n    } else {\n        return 'Cannot divide by zero';\n    }\n}\n\n// Example usage\nconst result = add(5, 3);\nconsole.log(`5 + 3 = ${result}`);",
+                    weather_app: "async function getWeather(city) {\n    const apiKey = 'YOUR_API_KEY';\n    const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;\n    \n    try {\n        const response = await fetch(url);\n        const data = await response.json();\n        console.log(`Temperature in ${city}: ${data.main.temp}°C`);\n    } catch (error) {\n        console.error('Error fetching weather data:', error);\n    }\n}\n\ngetWeather('Dhaka');"
                 },
                 html: {
                     basic: "<!DOCTYPE html>\n<html>\n<head>\n    <title>My Page</title>\n</head>\n<body>\n    <h1>Hello World</h1>\n    <p>Welcome to my website!</p>\n</body>\n</html>",
                     form: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Form Example</title>\n    <style>\n        body { font-family: Arial, sans-serif; }\n        form { max-width: 400px; margin: 20px auto; }\n        input, textarea { width: 100%; padding: 8px; margin: 5px 0; }\n    </style>\n</head>\n<body>\n    <form>\n        <label for='name'>Name:</label>\n        <input type='text' id='name' name='name'>\n        \n        <label for='email'>Email:</label>\n        <input type='email' id='email' name='email'>\n        \n        <label for='message'>Message:</label>\n        <textarea id='message' name='message'></textarea>\n        \n        <input type='submit' value='Submit'>\n    </form>\n</body>\n</html>",
-                    navbar: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Navigation Bar</title>\n    <style>\n        nav {\n            background-color: #333;\n            overflow: hidden;\n        }\n        \n        nav a {\n            float: left;\n            display: block;\n            color: white;\n            text-align: center;\n            padding: 14px 16px;\n            text-decoration: none;\n        }\n        \n        nav a:hover {\n            background-color: #ddd;\n            color: black;\n        }\n        \n        @media screen and (max-width: 600px) {\n            nav a {\n                float: none;\n                width: 100%;\n            }\n        }\n    </style>\n</head>\n<body>\n    <nav>\n        <a href='#home'>Home</a>\n        <a href='#news'>News</a>\n        <a href='#contact'>Contact</a>\n        <a href='#about'>About</a>\n    </nav>\n</body>\n</html>"
+                    navbar: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Navigation Bar</title>\n    <style>\n        nav {\n            background-color: #333;\n            overflow: hidden;\n        }\n        \n        nav a {\n            float: left;\n            display: block;\n            color: white;\n            text-align: center;\n            padding: 14px 16px;\n            text-decoration: none;\n        }\n        \n        nav a:hover {\n            background-color: #ddd;\n            color: black;\n        }\n        \n        @media screen and (max-width: 600px) {\n            nav a {\n                float: none;\n                width: 100%;\n            }\n        }\n    </style>\n</head>\n<body>\n    <nav>\n        <a href='#home'>Home</a>\n        <a href='#news'>News</a>\n        <a href='#contact'>Contact</a>\n        <a href='#about'>About</a>\n    </nav>\n</body>\n</html>",
+                    portfolio: "<!DOCTYPE html>\n<html>\n<head>\n    <title>My Portfolio</title>\n    <style>\n        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }\n        .header { background: #0077b6; color: white; padding: 20px; text-align: center; }\n        .projects { display: flex; flex-wrap: wrap; justify-content: center; padding: 20px; }\n        .project { background: #f1f1f1; margin: 10px; padding: 15px; border-radius: 5px; width: 300px; }\n    </style>\n</head>\n<body>\n    <div class='header'>\n        <h1>My Portfolio</h1>\n        <p>Welcome to my work portfolio</p>\n    </div>\n    <div class='projects'>\n        <div class='project'>\n            <h3>Project 1</h3>\n            <p>Description of project 1</p>\n        </div>\n        <div class='project'>\n            <h3>Project 2</h3>\n            <p>Description of project 2</p>\n        </div>\n    </div>\n</body>\n</html>"
                 },
                 css: {
                     basic: "body {\n    font-family: Arial, sans-serif;\n    margin: 0;\n    padding: 0;\n    background-color: #f4f4f4;\n    line-height: 1.6;\n}\n\n.container {\n    width: 80%;\n    margin: auto;\n    overflow: hidden;\n}",
-                    button: ".btn {\n    background-color: #4CAF50;\n    border: none;\n    color: white;\n    padding: 15px 32px;\n    text-align: center;\n    text-decoration: none;\n    display: inline-block;\n    font-size: 16px;\n    margin: 4px 2px;\n    cursor: pointer;\n    border-radius: 4px;\n    transition: background-color 0.3s;\n}\n\n.btn:hover {\n    background-color: #45a049;\n}"
+                    button: ".btn {\n    background-color: #4CAF50;\n    border: none;\n    color: white;\n    padding: 15px 32px;\n    text-align: center;\n    text-decoration: none;\n    display: inline-block;\n    font-size: 16px;\n    margin: 4px 2px;\n    cursor: pointer;\n    border-radius: 4px;\n    transition: background-color 0.3s;\n}\n\n.btn:hover {\n    background-color: #45a049;\n}",
+                    grid: ".grid-container {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n    gap: 20px;\n    padding: 20px;\n}\n\n.grid-item {\n    background: #f9f9f9;\n    padding: 20px;\n    border-radius: 5px;\n    box-shadow: 0 2px 5px rgba(0,0,0,0.1);\n}",
+                    animation: "@keyframes fadeIn {\n    from { opacity: 0; }\n    to { opacity: 1; }\n}\n\n.fade-in {\n    animation: fadeIn 1s ease-in;\n}\n\n@keyframes slideIn {\n    from { transform: translateX(-100%); }\n    to { transform: translateX(0); }\n}\n\n.slide-in {\n    animation: slideIn 0.5s ease-out;\n}"
                 }
             };
             
@@ -425,7 +633,8 @@
                 space: "In the year 2150, humanity had finally achieved what seemed impossible just a century before - a thriving colony on Mars. Captain Ayesha Rahman, a brilliant astrophysicist from Bangladesh, was leading the mission to explore the mysterious valleys of Valles Marineris. What her team discovered there would change our understanding of life in the universe forever...",
                 adventure: "Deep in the Amazon rainforest, a team of explorers discovered an ancient temple hidden for millennia. Inside, they found not gold or jewels, but something far more valuable - knowledge that could solve the world's energy crisis. But they weren't alone in their search...",
                 fantasy: "In the mystical land of Eldoria, where magic flowed like rivers, a young apprentice named Kael discovered he had a unique ability - he could communicate with dragons, creatures thought to be extinct for centuries. This gift would lead him on an epic journey to restore balance to the world...",
-                scifi: "On a distant planet orbiting a red dwarf star, Dr. Chen's research team made an incredible breakthrough. They developed a device that could manipulate time on a small scale. But when corporate interests tried to weaponize their invention, the team had to make a difficult choice..."
+                scifi: "On a distant planet orbiting a red dwarf star, Dr. Chen's research team made an incredible breakthrough. They developed a device that could manipulate time on a small scale. But when corporate interests tried to weaponize their invention, the team had to make a difficult choice...",
+                historical: "In 1971, during Bangladesh's Liberation War, a young freedom fighter named Anwar found himself behind enemy lines. With courage and ingenuity, he managed to gather crucial intelligence that would turn the tide of a key battle. His story became legend, inspiring generations to come..."
             };
             
             // Search results templates (simulated Google search)
@@ -480,6 +689,44 @@
                         }
                     ]
                 }
+            };
+            
+            // Document templates
+            const documentTemplates = {
+                research: [
+                    {
+                        title: "Deep Learning for Computer Vision: A Comprehensive Review",
+                        authors: "Smith, J., Johnson, A., & Williams, R.",
+                        year: "2023",
+                        url: "https://example.com/deep-learning-vision",
+                        abstract: "This paper provides a comprehensive review of deep learning techniques applied to computer vision tasks, covering convolutional neural networks, transformers, and recent advances in the field."
+                    },
+                    {
+                        title: "Natural Language Processing in the Era of Large Language Models",
+                        authors: "Chen, L., Gupta, S., & Rodriguez, M.",
+                        year: "2022",
+                        url: "https://example.com/nlp-llm",
+                        abstract: "We survey the landscape of natural language processing following the emergence of large language models, discussing their capabilities, limitations, and ethical considerations."
+                    }
+                ],
+                legal: [
+                    {
+                        title: "A Guide to Intellectual Property Law for Software Developers",
+                        authors: "Legal Advisory Board",
+                        year: "2023",
+                        url: "https://example.com/ip-law-software",
+                        abstract: "This guide explains key intellectual property concepts relevant to software development, including copyright, patents, and open-source licensing."
+                    }
+                ],
+                business: [
+                    {
+                        title: "The Future of Remote Work: Trends and Predictions",
+                        authors: "Global Business Institute",
+                        year: "2023",
+                        url: "https://example.com/future-remote-work",
+                        abstract: "An analysis of how remote work is evolving, with predictions for how businesses will adapt their strategies in the coming years."
+                    }
+                ]
             };
             
             // Add message to chat
@@ -557,6 +804,10 @@
                         response += "<div class='info-box'><strong>Language:</strong> Bengali (Bangla)</div>";
                     }
                     
+                    if (input.includes('culture') || input.includes('food')) {
+                        response += "<div class='info-box'><strong>Culture:</strong> Bangladesh has a rich cultural heritage including music, dance, literature, and delicious cuisine like biryani, pitha, and various fish dishes.</div>";
+                    }
+                    
                     return response;
                 }
                 
@@ -574,8 +825,10 @@
                             return response + "<br><br>Here's a Python function:<br><br>```" + codeTemplates.python.function + "```";
                         } else if (input.includes('calculator')) {
                             return response + "<br><br>Here's a simple Python calculator:<br><br>```" + codeTemplates.python.calculator + "```";
+                        } else if (input.includes('scrap') || input.includes('web')) {
+                            return response + "<br><br>Here's a Python web scraper:<br><br>```" + codeTemplates.python.web_scraper + "```";
                         } else {
-                            return response + "<br><br>I can generate Python code for: hello, loop, function, calculator";
+                            return response + "<br><br>I can generate Python code for: hello, loop, function, calculator, web scraper";
                         }
                     } else if (input.includes('javascript') || input.includes('js')) {
                         if (input.includes('hello')) {
@@ -586,20 +839,28 @@
                             return response + "<br><br>Here's a JavaScript function:<br><br>```" + codeTemplates.javascript.function + "```";
                         } else if (input.includes('calculator')) {
                             return response + "<br><br>Here's a simple JavaScript calculator:<br><br>```" + codeTemplates.javascript.calculator + "```";
+                        } else if (input.includes('weather') || input.includes('api')) {
+                            return response + "<br><br>Here's a JavaScript weather app using API:<br><br>```" + codeTemplates.javascript.weather_app + "```";
                         } else {
-                            return response + "<br><br>I can generate JavaScript code for: hello, loop, function, calculator";
+                            return response + "<br><br>I can generate JavaScript code for: hello, loop, function, calculator, weather app";
                         }
                     } else if (input.includes('html')) {
                         if (input.includes('form')) {
                             return response + "<br><br>Here's an HTML form:<br><br>```" + codeTemplates.html.form + "```";
                         } else if (input.includes('nav') || input.includes('navbar')) {
                             return response + "<br><br>Here's a responsive HTML navbar:<br><br>```" + codeTemplates.html.navbar + "```";
+                        } else if (input.includes('portfolio')) {
+                            return response + "<br><br>Here's a simple HTML portfolio template:<br><br>```" + codeTemplates.html.portfolio + "```";
                         } else {
                             return response + "<br><br>Here's a basic HTML template:<br><br>```" + codeTemplates.html.basic + "```";
                         }
                     } else if (input.includes('css')) {
                         if (input.includes('button')) {
                             return response + "<br><br>Here's some CSS for a button:<br><br>```" + codeTemplates.css.button + "```";
+                        } else if (input.includes('grid') || input.includes('layout')) {
+                            return response + "<br><br>Here's a CSS grid layout:<br><br>```" + codeTemplates.css.grid + "```";
+                        } else if (input.includes('animation')) {
+                            return response + "<br><br>Here's some CSS animation examples:<br><br>```" + codeTemplates.css.animation + "```";
                         } else {
                             return response + "<br><br>Here's some basic CSS:<br><br>```" + codeTemplates.css.basic + "```";
                         }
@@ -616,6 +877,8 @@
                         return "<div class='story-box'>" + storyTemplates.adventure + "</div>";
                     } else if (input.includes('fantasy')) {
                         return "<div class='story-box'>" + storyTemplates.fantasy + "</div>";
+                    } else if (input.includes('historical') || input.includes('bangladesh') || input.includes('liberation')) {
+                        return "<div class='story-box'>" + storyTemplates.historical + "</div>";
                     } else {
                         return "<div class='story-box'>" + storyTemplates.scifi + "</div>";
                     }
@@ -641,6 +904,32 @@
                     
                     results.results.forEach((result, index) => {
                         response += `<div class='search-result'><strong>${index + 1}. <a href="${result.url}" target="_blank">${result.title}</a></strong><br>${result.snippet}</div>`;
+                    });
+                    
+                    return response;
+                }
+                
+                // Check for document requests
+                if (input.includes('document') || input.includes('research') || input.includes('paper') || input.includes('article')) {
+                    let docType = "";
+                    
+                    if (input.includes('research') || input.includes('paper') || input.includes('academic')) {
+                        docType = "research";
+                    } else if (input.includes('legal') || input.includes('law') || input.includes('copyright')) {
+                        docType = "legal";
+                    } else if (input.includes('business') || input.includes('market') || input.includes('economy')) {
+                        docType = "business";
+                    } else {
+                        docType = "research";
+                    }
+                    
+                    const documents = documentTemplates[docType];
+                    let response = `<div class='document-box'>I found these ${docType} documents:</div>`;
+                    
+                    documents.forEach((doc, index) => {
+                        response += `<div class='document-box'><strong>${index + 1}. <a href="${doc.url}" target="_blank">${doc.title}</a></strong><br>
+                            <em>Authors: ${doc.authors} (${doc.year})</em><br>
+                            ${doc.abstract}</div>`;
                     });
                     
                     return response;
@@ -686,6 +975,49 @@
                 }, 1000 + Math.random() * 1000);
             }
             
+            // Clear chat function
+            function clearChat() {
+                const messages = chatContainer.querySelectorAll('.message');
+                messages.forEach(message => {
+                    if (!message.isEqualNode(chatContainer.firstElementChild)) {
+                        message.remove();
+                    }
+                });
+            }
+            
+            // Export chat function
+            function exportChat() {
+                const messages = chatContainer.querySelectorAll('.message');
+                let chatText = "Abtahi AI Chat Export\n\n";
+                
+                messages.forEach(message => {
+                    const isUser = message.classList.contains('user-message');
+                    const sender = isUser ? "You" : "Abtahi";
+                    const text = message.textContent || message.innerText;
+                    chatText += `${sender}: ${text}\n\n`;
+                });
+                
+                const blob = new Blob([chatText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'abtahi-chat-export.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            
+            // Change theme function
+            function changeTheme() {
+                const body = document.body;
+                if (body.style.background.includes('135deg')) {
+                    body.style.background = 'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)';
+                } else if (body.style.background.includes('ff9a9e')) {
+                    body.style.background = 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)';
+                } else {
+                    body.style.background = 'linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #6FB1FC 100%)';
+                }
+            }
+            
             // Event listeners
             sendButton.addEventListener('click', handleUserMessage);
             userInput.addEventListener('keypress', function(e) {
@@ -699,6 +1031,27 @@
                 chip.addEventListener('click', function() {
                     userInput.value = this.getAttribute('data-prompt');
                     handleUserMessage();
+                });
+            });
+            
+            // Add tool functionality
+            toolButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.getAttribute('data-action');
+                    
+                    switch(action) {
+                        case 'clear-chat':
+                            if (confirm("Are you sure you want to clear the chat?")) {
+                                clearChat();
+                            }
+                            break;
+                        case 'export-chat':
+                            exportChat();
+                            break;
+                        case 'change-theme':
+                            changeTheme();
+                            break;
+                    }
                 });
             });
         });
