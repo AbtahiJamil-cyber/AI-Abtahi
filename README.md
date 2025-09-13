@@ -1,3 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Abtahi AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+    textarea { width: 100%; height: 80px; padding: 8px; }
+    button { margin-top: 8px; padding: 10px 16px; }
+    pre { background: #f6f6f6; padding: 12px; border-radius: 6px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Abtahi AI</h1>
+  <p>Ask me anything. I’ll try to answer using Google + AI (needs backend for real use).</p>
+  <textarea id="q" placeholder="Type your question..."></textarea><br>
+  <button onclick="ask()">Ask</button>
+  <h3>Answer:</h3>
+  <pre id="answer">Waiting for question...</pre>
+
+  <script>
+    async function ask() {
+      const query = document.getElementById("q").value;
+      document.getElementById("answer").textContent = "Thinking...";
+
+      // ⚠️ In reality you must call your backend here.
+      // For demo, we'll fake Google + AI with DuckDuckGo instant API.
+      try {
+        let res = await fetch("https://api.duckduckgo.com/?q=" + encodeURIComponent(query) + "&format=json");
+        let data = await res.json();
+        if (data.AbstractText) {
+          document.getElementById("answer").textContent = data.AbstractText;
+        } else {
+          document.getElementById("answer").textContent = "No instant answer found. (Backend with Google/OpenAI needed)";
+        }
+      } catch (e) {
+        document.getElementById("answer").textContent = "Error: " + e.message;
+      }
+    }
+  </script>
+</body>
+</html>
+
+
 {
   "name": "abtahi-search-ai",
   "version": "1.0.0",
