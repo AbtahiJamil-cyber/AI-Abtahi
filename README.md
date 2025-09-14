@@ -493,4 +493,221 @@
                     hello: "console.log('Hello, World!');",
                     loop: "for(let i = 0; i < 10; i++) {\n    console.log(i);\n}",
                     function: "function exampleFunction() {\n    return 'This is an example';\n}",
-                    calculator: "function add(a, b) {\
+                    calculator: "function add(a, b) {\n    return a + b;\n}\n\nfunction subtract(a, b) {\n    return a - b;\n}\n\nfunction multiply(a, b) {\n    return a * b;\n}\n\nfunction divide(a, b) {\n    if (b !== 0) {\n        return a / b;\n    } else {\n        return 'Cannot divide by zero';\n    }\n}\n\n// Example usage\nconst result = add(5, 3);\nconsole.log(`5 + 3 = ${result}`);",
+                    weather_app: "async function getWeather(city) {\n    const apiKey = 'YOUR_API_KEY';\n    const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;\n    \n    try {\n        const response = await fetch(url);\n        const data = await response.json();\n        console.log(`Temperature in ${city}: ${data.main.temp}°C`);\n    } catch (error) {\n        console.error('Error fetching weather data:', error);\n    }\n}\n\ngetWeather('Dhaka');"
+                },
+                html: {
+                    basic: "<!DOCTYPE html>\n<html>\n<head>\n    <title>My Page</title>\n</head>\n<body>\n    <h1>Hello World</h1>\n    <p>Welcome to my website!</p>\n</body>\n</html>",
+                    form: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Form Example</title>\n    <style>\n        body { font-family: Arial, sans-serif; }\n        form { max-width: 400px; margin: 20px auto; }\n        input, textarea { width: 100%; padding: 8px; margin: 5px 0; }\n    </style>\n</head>\n<body>\n    <form>\n        <label for='name'>Name:</label>\n        <input type='text' id='name' name='name'>\n        \n        <label for='email'>Email:</label>\n        <input type='email' id='email' name='email'>\n        \n        <label for='message'>Message:</label>\n        <textarea id='message' name='message'></textarea>\n        \n        <input type='submit' value='Submit'>\n    </form>\n</body>\n</html>",
+                    navbar: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Navigation Bar</title>\n    <style>\n        nav {\n            background-color: #333;\n            overflow: hidden;\n        }\n        \n        nav a {\n            float: left;\n            display: block;\n            color: white;\n            text-align: center;\n            padding: 14px 16px;\n            text-decoration: none;\n        }\n        \n        nav a:hover {\n            background-color: #ddd;\n            color: black;\n        }\n        \n        @media screen and (max-width: 600px) {\n            nav a {\n                float: none;\n                width: 100%;\n            }\n        }\n    </style>\n</head>\n<body>\n    <nav>\n        <a href='#home'>Home</a>\n        <a href='#news'>News</a>\n        <a href='#contact'>Contact</a>\n        <a href='#about'>About</a>\n    </nav>\n</body>\n</html>",
+                    portfolio: "<!DOCTYPE html>\n<html>\n<head>\n    <title>My Portfolio</title>\n    <style>\n        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }\n        .header { background: #0077b6; color: white; padding: 20px; text-align: center; }\n        .projects { display: flex; flex-wrap: wrap; justify-content: center; padding: 20px; }\n        .project { background: #f1f1f1; margin: 10px; padding: 15px; border-radius: 5px; width: 300px; }\n    </style>\n</head>\n<body>\n    <div class='header'>\n        <h1>My Portfolio</h1>\n        <p>Welcome to my work portfolio</p>\n    </div>\n    <div class='projects'>\n        <div class='project'>\n            <h3>Project 1</h3>\n            <p>Description of project 1</p>\n        </div>\n        <div class='project'>\n            <h3>Project 2</h3>\n            <p>Description of project 2</p>\n        </div>\n    </div>\n</body>\n</html>"
+                },
+                css: {
+                    basic: "body {\n    font-family: Arial, sans-serif;\n    margin: 0;\n    padding: 0;\n    background-color: #f4f4f4;\n    line-height: 1.6;\n}\n\n.container {\n    width: 80%;\n    margin: auto;\n    overflow: hidden;\n}",
+                    button: ".btn {\n    background-color: #4CAF50;\n    border: none;\n    color: white;\n    padding: 15px 32px;\n    text-align: center;\n    text-decoration: none;\n    display: inline-block;\n    font-size: 16px;\n    margin: 4px 2px;\n    cursor: pointer;\n    border-radius: 4px;\n    transition: background-color 0.3s;\n}\n\n.btn:hover {\n    background-color: #45a049;\n}",
+                    grid: ".grid-container {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n    gap: 20px;\n    padding: 20px;\n}\n\n.grid-item {\n    background: #f9f9f9;\n    padding: 20px;\n    border-radius: 5px;\n    box-shadow: 0 2px 5px rgba(0,0,0,0.1);\n}",
+                    animation: "@keyframes fadeIn {\n    from { opacity: 0; }\n    to { opacity: 1; }\n}\n\n.fade-in {\n    animation: fadeIn 1s ease-in;\n}\n\n@keyframes slideIn {\n    from { transform: translateX(-100%); }\n    to { transform: translateX(0); }\n}\n\n.slide-in {\n    animation: slideIn 0.5s ease-out;\n}"
+                }
+            };
+            
+            // Story templates
+            const storyTemplates = {
+                space: "In the year 2150, humanity had finally achieved what seemed impossible just a century before - a thriving colony on Mars. Captain Ayesha Rahman, a brilliant astrophysicist from Bangladesh, was leading the mission to explore the mysterious valleys of Valles Marineris. What her team discovered there would change our understanding of life in the universe forever...",
+                adventure: "Deep in the Amazon rainforest, a team of explorers discovered an ancient temple hidden for millennia. Inside, they found not gold or jewels, but something far more valuable - knowledge that could solve the world's energy crisis. But they weren't alone in their search...",
+                fantasy: "In the mystical land of Eldoria, where magic flowed like rivers, a young apprentice named Kael discovered he had a unique ability - he could communicate with dragons, creatures thought to be extinct for centuries. This gift would lead him on an epic journey to restore balance to the world...",
+                scifi: "On a distant planet orbiting a red dwarf star, Dr. Chen's research team made an incredible breakthrough. They developed a device that could manipulate time on a small scale. But when corporate interests tried to weaponize their invention, the team had to make a difficult choice...",
+                historical: "In 1971, during Bangladesh's Liberation War, a young freedom fighter named Anwar found himself behind enemy lines. With courage and ingenuity, he managed to gather crucial intelligence that would turn the tide of a key battle. His story became legend, inspiring generations to come..."
+            };
+            
+            // Search results templates (simulated Google search)
+            const searchResults = {
+                ai: {
+                    query: "latest AI developments",
+                    results: [
+                        {
+                            title: "Breakthrough in Quantum Machine Learning",
+                            url: "https://example.com/quantum-ai",
+                            snippet: "Researchers have developed a new quantum algorithm that dramatically accelerates machine learning processes, potentially revolutionizing AI capabilities."
+                        },
+                        {
+                            title: "GPT-5: What to Expect",
+                            url: "https://example.com/gpt5-preview",
+                            snippet: "Industry insiders suggest GPT-5 will feature significantly improved reasoning capabilities and reduced hallucinations, with a planned release next year."
+                        },
+                        {
+                            title: "AI in Healthcare: New Diagnostic Tools",
+                            url: "https://example.com/ai-healthcare",
+                            snippet: "New AI systems can now detect early signs of diseases from medical imaging with accuracy surpassing human experts in several domains."
+                        }
+                    ]
+                },
+                bangladesh: {
+                    query: "Bangladesh technology growth",
+                    results: [
+                        {
+                            title: "Bangladesh's Digital Transformation",
+                            url: "https://example.com/bd-digital",
+                            snippet: "Bangladesh has seen remarkable growth in its technology sector, with digital exports increasing by 40% in the past year alone."
+                        },
+                        {
+                            title: "Startup Ecosystem in Dhaka",
+                            url: "https://example.com/dhaka-startups",
+                            snippet: "Dhaka's startup scene is booming, with several tech startups reaching unicorn status and attracting international investment."
+                        }
+                    ]
+                },
+                programming: {
+                    query: "best programming languages to learn 2024",
+                    results: [
+                        {
+                            title: "Top 10 Programming Languages for 2024",
+                            url: "https://example.com/top-languages",
+                            snippet: "Python continues to dominate, but Rust and TypeScript are seeing the fastest growth in demand according to industry surveys."
+                        },
+                        {
+                            title: "The Rise of WebAssembly",
+                            url: "https://example.com/webassembly-rise",
+                            snippet: "WebAssembly is becoming increasingly important for high-performance web applications, with all major browsers now offering full support."
+                        }
+                    ]
+                }
+            };
+            
+            // Document templates
+            const documentTemplates = {
+                research: [
+                    {
+                        title: "Deep Learning for Computer Vision: A Comprehensive Review",
+                        authors: "Smith, J., Johnson, A., & Williams, R.",
+                        year: "2023",
+                        url: "https://example.com/deep-learning-vision",
+                        abstract: "This paper provides a comprehensive review of deep learning techniques applied to computer vision tasks, covering convolutional neural networks, transformers, and recent advances in the field."
+                    },
+                    {
+                        title: "Natural Language Processing in the Era of Large Language Models",
+                        authors: "Chen, L., Gupta, S., & Rodriguez, M.",
+                        year: "2022",
+                        url: "https://example.com/nlp-llm",
+                        abstract: "We survey the landscape of natural language processing following the emergence of large language models, discussing their capabilities, limitations, and ethical considerations."
+                    }
+                ],
+                legal: [
+                    {
+                        title: "A Guide to Intellectual Property Law for Software Developers",
+                        authors: "Legal Advisory Board",
+                        year: "2023",
+                        url: "https://example.com/ip-law-software",
+                        abstract: "This guide explains key intellectual property concepts relevant to software development, including copyright, patents, and open-source licensing."
+                    }
+                ],
+                business: [
+                    {
+                        title: "The Future of Remote Work: Trends and Predictions",
+                        authors: "Global Business Institute",
+                        year: "2023",
+                        url: "https://example.com/future-remote-work",
+                        abstract: "An analysis of how remote work is evolving, with predictions for how businesses will adapt their strategies in the coming years."
+                    }
+                ]
+            };
+            
+            // Knowledge base for various topics
+            const knowledgeBase = {
+                technology: {
+                    ai: "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think like humans and mimic their actions. Key areas include machine learning, natural language processing, computer vision, and robotics.",
+                    blockchain: "Blockchain is a distributed, immutable ledger that facilitates the process of recording transactions and tracking assets in a business network. It's the technology behind cryptocurrencies like Bitcoin and Ethereum.",
+                    iot: "The Internet of Things (IoT) describes the network of physical objects—'things'—that are embedded with sensors, software, and other technologies for the purpose of connecting and exchanging data with other devices and systems over the internet."
+                },
+                science: {
+                    quantum: "Quantum computing is an area of computing focused on developing computer technology based on the principles of quantum theory, which explains the nature and behavior of energy and matter on the quantum (atomic and subatomic) level.",
+                    biotechnology: "Biotechnology is the use of biological processes, organisms, or systems to manufacture products intended to improve the quality of human life. It has applications in medicine, agriculture, and industry.",
+                    astrophysics: "Astrophysics is a branch of space science that applies the laws of physics and chemistry to explain the birth, life and death of stars, planets, galaxies, nebulae and other objects in the universe."
+                },
+                history: {
+                    bangladesh: "Bangladesh gained independence from Pakistan in 1971 after a nine-month war. The Language Movement of 1952, which is commemorated by International Mother Language Day, was a key event in the history of Bangladesh's independence struggle.",
+                    internet: "The Internet originated with the development of electronic computers in the 1950s. The public was first introduced to the concepts that would lead to the Internet when a message was sent over the ARPANET from computer science Professor Leonard Kleinrock's laboratory at University of California, Los Angeles (UCLA) to the second network node at Stanford Research Institute (SRI) on October 29, 1969."
+                }
+            };
+            
+            // Add message to chat
+            function addMessage(text, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(isUser ? 'user-message' : 'ai-message');
+                
+                // Check if the response contains code
+                if (!isUser && text.includes('```')) {
+                    const parts = text.split('```');
+                    let formattedText = '';
+                    
+                    for (let i = 0; i < parts.length; i++) {
+                        if (i % 2 === 0) {
+                            formattedText += parts[i];
+                        } else {
+                            formattedText += `<pre>${parts[i]}</pre>`;
+                        }
+                    }
+                    
+                    messageDiv.innerHTML = formattedText;
+                } else {
+                    messageDiv.innerHTML = text;
+                }
+                
+                chatContainer.insertBefore(messageDiv, typingIndicator);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // Show typing indicator
+            function showTypingIndicator() {
+                typingIndicator.style.display = 'block';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // Hide typing indicator
+            function hideTypingIndicator() {
+                typingIndicator.style.display = 'none';
+            }
+            
+            // Simulate Google search (in a real implementation, this would use the Google Search API)
+            async function simulateGoogleSearch(query) {
+                showTypingIndicator();
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                hideTypingIndicator();
+                
+                // Check if we have predefined results for this query
+                if (query.toLowerCase().includes('ai') || query.toLowerCase().includes('artificial intelligence')) {
+                    const results = searchResults.ai;
+                    let response = `<div class='search-result'>I found these results for '${results.query}':</div>`;
+                    
+                    results.results.forEach((result, index) => {
+                        response += `<div class='search-result'><strong>${index + 1}. <a href="${result.url}" target="_blank">${result.title}</a></strong><br>${result.snippet}</div>`;
+                    });
+                    
+                    return response;
+                } else if (query.toLowerCase().includes('bangladesh')) {
+                    const results = searchResults.bangladesh;
+                    let response = `<div class='search-result'>I found these results for '${results.query}':</div>`;
+                    
+                    results.results.forEach((result, index) => {
+                        response += `<div class='search-result'><strong>${index + 1}. <a href="${result.url}" target="_blank">${result.title}</a></strong><br>${result.snippet}</div>`;
+                    });
+                    
+                    return response;
+                } else if (query.toLowerCase().includes('programming') || query.toLowerCase().includes('code')) {
+                    const results = searchResults.programming;
+                    let response = `<div class='search-result'>I found these results for '${results.query}':</div>`;
+                    
+                    results.results.forEach((result, index) => {
+                        response += `<div class='search-result'><strong>${index + 1}. <a href="${result.url}" target="_blank">${result.title}</a></strong><br>${result.snippet}</div>`;
+                    });
+                    
+                    return response;
+                } else {
+                    // Generic response for other queries
+                    return `<div class='search-result'>I searched for "${query}" and found several relevant results. For more specific information, try refining your search query or ask me about a particular topic.</div>
+                    <div class='search-result'><strong>1. <a href="https://example.com/search?q=${encodeURIComponent(query)}" target="_blank">Top results for "${query}"</a></strong><br>Comprehensive information about ${query} from various sources.</div>
+                    <div class='search-result'><strong>2. <a href="https://example.com/wiki/${encodeURIComponent(query)}" target="_blank">Wikipedia: ${query}</a></strong><br>Encyclopedia article about ${query} with detailed information.</div>
+                    <div class='search-result'><strong>3. <a href="https://example.com/news?q=${encodeURIComponent(query)}" target="_blank">Latest news about
